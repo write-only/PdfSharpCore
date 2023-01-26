@@ -55,14 +55,14 @@ namespace PdfSharpCore.Utils
                 fontDir = System.Environment.ExpandEnvironmentVariables(@"%SystemRoot%\Fonts");
                 var fontPaths = new List<string>();
 
-                var systemFontPaths = System.IO.Directory.GetFiles(fontDir, "*.ttf", System.IO.SearchOption.AllDirectories);
-                fontPaths.AddRange(systemFontPaths);
+                fontPaths.AddRange(System.IO.Directory.GetFiles(fontDir, "*.ttf", System.IO.SearchOption.AllDirectories));
+                fontPaths.AddRange(System.IO.Directory.GetFiles(fontDir, "*.ttc", System.IO.SearchOption.AllDirectories));
 
                 var appdataFontDir = System.Environment.ExpandEnvironmentVariables(@"%LOCALAPPDATA%\Microsoft\Windows\Fonts");
                 if(System.IO.Directory.Exists(appdataFontDir))
                 {
-                    var appdataFontPaths = System.IO.Directory.GetFiles(appdataFontDir, "*.ttf", System.IO.SearchOption.AllDirectories);
-                    fontPaths.AddRange(appdataFontPaths);
+                    fontPaths.AddRange(System.IO.Directory.GetFiles(appdataFontDir, "*.ttf", System.IO.SearchOption.AllDirectories));
+                    fontPaths.AddRange(System.IO.Directory.GetFiles(appdataFontDir, "*.ttc", System.IO.SearchOption.AllDirectories));
                 }
 
                 SSupportedFonts = fontPaths.ToArray();
@@ -74,9 +74,9 @@ namespace PdfSharpCore.Utils
         }
 
 
-        private readonly struct FontFileInfo
+        internal readonly struct FontFileInfo
         {
-            private FontFileInfo(string path, FontDescription fontDescription)
+            public FontFileInfo(string path, FontDescription fontDescription)
             {
                 this.Path = path;
                 this.FontDescription = fontDescription;
@@ -103,12 +103,6 @@ namespace PdfSharpCore.Utils
                         return XFontStyle.Regular;
                 }
             }
-
-            public static FontFileInfo Load(string path)
-            {
-                FontDescription fontDescription = FontDescription.LoadDescription(path);
-                return new FontFileInfo(path, fontDescription);
-            }
         }
 
 
@@ -117,15 +111,27 @@ namespace PdfSharpCore.Utils
             List<FontFileInfo> tempFontInfoList = new List<FontFileInfo>();
             foreach (string fontPathFile in sSupportedFonts)
             {
-                try
+                var fontDescriptions = new List<FontDescription>();
+                if (fontPathFile.EndsWith(".ttc", System.StringComparison.InvariantCultureIgnoreCase))
                 {
-                    FontFileInfo fontInfo = FontFileInfo.Load(fontPathFile);
-                    Debug.WriteLine(fontPathFile);
-                    tempFontInfoList.Add(fontInfo);
+                    fontDescriptions.AddRange(FontDescription.LoadFontCollectionDescriptions(fontPathFile));
                 }
-                catch (System.Exception e)
+                else if(fontPathFile.EndsWith(".ttf", System.StringComparison.InvariantCultureIgnoreCase))
                 {
-                    System.Console.Error.WriteLine(e);
+                    fontDescriptions.Add(FontDescription.LoadDescription(fontPathFile));
+                }
+                foreach (var fontDescription in fontDescriptions)
+                {
+                    try
+                    {
+                        FontFileInfo fontInfo = new FontFileInfo(fontPathFile, fontDescription);
+                        Debug.WriteLine(fontPathFile);
+                        tempFontInfoList.Add(fontInfo);
+                    }
+                    catch (System.Exception e)
+                    {
+                        System.Console.Error.WriteLine(e);
+                    }
                 }
             }
 
